@@ -150,6 +150,13 @@ var DEFAULT_MENU_ITEMS = {
         action: () => store.copyNodeName(node.get('name')),
       });
     }
+    if (node.get('nodeType') === 'Composite') {
+      items.push({
+        key: 'copyNodeData',
+        title: 'Copy component data',
+        action: () => store.copyNodeData(node),
+      });
+    }
     const props = node.get('props');
     if (props) {
       const numKeys = Object.keys(props)

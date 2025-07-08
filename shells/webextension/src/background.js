@@ -40,6 +40,20 @@ chrome.runtime.onConnect.addListener(function(port) {
   }
 });
 
+chrome.runtime.onConnect.addListener(port => {
+  let panelId;
+  const onMessage = message => {
+    if (message.name === 'init') {
+      panelId = message.tabId;
+    }
+  };
+  port.onMessage.addListener(onMessage);
+
+  port.onDisconnect.addListener(() => {
+    port.onMessage.removeListener(onMessage);
+  });
+});
+
 function isNumeric(str: string): boolean {
   return +str + '' === str;
 }
@@ -117,5 +131,17 @@ chrome.runtime.onMessage.addListener((req, sender) => {
     }
 
     setIconAndPopup(reactBuildType, sender.tab.id);
+  }
+});
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'copy') {
+    const input = document.createElement('textarea');
+    document.body.appendChild(input);
+    input.value = request.text;
+    input.focus();
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
   }
 });

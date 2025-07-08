@@ -60,19 +60,42 @@ class PropState extends React.Component<Props> {
       return null;
     }
 
+    const {fileName, lineNumber} = source;
+    const text = `${fileName}:${lineNumber}`;
+
     let onClick;
     if (onViewElementSource) {
       onClick = () => onViewElementSource(id, source);
     }
 
     return (
-      <div
-        style={sourceStyle(!!onViewElementSource, theme)}
-        onClick={onClick}
-      >
-        {source.fileName}
-        <span style={sourcePosStyle(theme)}>
-          :{source.lineNumber}
+      <div style={styles.source} onClick={onClick}>
+        <span
+          style={sourceStyle(!!onViewElementSource, theme)}
+          title={text}
+        >
+          {fileName.split('/').slice(-3).join('/')}
+          <span style={sourcePosStyle(theme)}>
+            :{lineNumber}
+          </span>
+        </span>
+        <span
+          title="Copy to clipboard"
+          style={styles.copyButton}
+          onClick={e => {
+            e.stopPropagation();
+            copy(text);
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+          </svg>
         </span>
       </div>
     );
@@ -241,6 +264,20 @@ var WrappedPropState = decorate({
     };
   },
 }, PropState);
+
+const styles = {
+  copyButton: {
+    cursor: 'pointer',
+    marginLeft: '0.5rem',
+    display: 'inline-block',
+    opacity: 0.5,
+  },
+  source: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 0.5rem 0.5rem',
+  },
+};
 
 const emptyStyle = (theme: Theme) => ({
   fontFamily: sansSerif.family,

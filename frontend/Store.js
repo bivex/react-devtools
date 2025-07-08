@@ -13,7 +13,6 @@
 var {EventEmitter} = require('events');
 var {Map, Set, List} = require('immutable');
 var assign = require('object-assign');
-var { copy } = require('clipboard-js');
 var nodeMatchesText = require('./nodeMatchesText');
 var consts = require('../agent/consts');
 var serializePropsForCopy = require('../utils/serializePropsForCopy');
@@ -21,6 +20,13 @@ var invariant = require('./invariant');
 var SearchUtils = require('./SearchUtils');
 var ThemeStore = require('./Themes/Store');
 const {get, set} = require('../utils/storage');
+
+function copy(text) {
+  chrome.runtime.sendMessage({
+    type: 'copy',
+    text: text,
+  });
+}
 
 const LOCAL_STORAGE_TRACE_UPDATES_KEY = 'traceUpdates';
 
@@ -238,8 +244,85 @@ class Store extends EventEmitter {
     copy(name);
   }
 
-  copyNodeProps(props: Object): void {
+  copyNodeProps(props: ?Object) {
     copy(serializePropsForCopy(props));
+  }
+
+  copyNodeData(node: Object) {
+    const recursiveData = this._getNodeDataRecursive(node);
+    const cache = new Set();
+    const text = JSON.stringify(recursiveData, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (value.$$typeof && value.$$typeof.toString() === 'Symbol(react.element)') {
+          let displayName = 'Unknown';
+          if (value.type) {
+            if (typeof value.type === 'string') {
+              displayName = value.type;
+            } else {
+              displayName = value.type.displayName || value.type.name || 'Component';
+            }
+          }
+          return `[ReactElement ${displayName}]`;
+        }
+        if (cache.has(value)) {
+          return '[Circular]';
+        }
+        cache.add(value);
+      }
+      if (typeof value === 'function') {
+        return `[Function ${value.name || 'anonymous'}]`;
+      }
+      if (value instanceof window.HTMLElement) {
+        return `<${value.tagName.toLowerCase()} />`;
+      }
+      return value;
+    }, 2);
+
+    copy(text);
+  }
+
+  _getNodeDataRecursive(node: Object) {
+    if (!node) {
+      return null;
+    }
+
+    const dataToCopy = {};
+    const name = node.get('name');
+    if (name) {
+      dataToCopy.name = name;
+    }
+    const props = node.get('props');
+    if (props) {
+      dataToCopy.props = props;
+    }
+    const state = node.get('state');
+    if (state) {
+      dataToCopy.state = state;
+    }
+    const context = node.get('context');
+    if (context) {
+      dataToCopy.context = context;
+    }
+    const source = node.get('source');
+    if (source) {
+      dataToCopy.source = `${source.fileName}:${source.lineNumber}`;
+    }
+
+    const children = node.get('children');
+    if (children) {
+      if (typeof children === 'string') {
+        dataToCopy.children = children;
+      } else if (Array.isArray(children)) {
+        dataToCopy.children = children.map(id => this._getNodeDataRecursive(this.get(id))).filter(Boolean);
+      } else { // It's a single ID
+        const childData = this._getNodeDataRecursive(this.get(children));
+        if (childData) {
+          dataToCopy.children = [childData];
+        }
+      }
+    }
+
+    return dataToCopy;
   }
 
   setSelectedTab(name: string): void {
